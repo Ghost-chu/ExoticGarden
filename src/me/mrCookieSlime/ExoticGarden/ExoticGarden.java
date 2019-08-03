@@ -1,19 +1,15 @@
 package me.mrCookieSlime.ExoticGarden;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import me.mrCookieSlime.Slimefun.api.Slimefun;
-import org.bukkit.Color;
-import org.bukkit.Effect;
-import org.bukkit.Material;
-import org.bukkit.Tag;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.CoreProtectAPI;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
@@ -49,7 +45,7 @@ public class ExoticGarden extends JavaPlugin {
 	static Map<String, ItemStack> items = new HashMap<String, ItemStack>();
 	Category category_main, category_food, category_drinks, category_magic;
 	Config cfg;
-
+	public static CoreProtectAPI coreProtectAPI;
 	private static boolean skullitems;
 
 	public static ItemStack KITCHEN = new CustomItem(Material.CAULDRON, "&eKitchen", new String[] {"", "&a&oYou can make a bunch of different yummies here!", "&a&oThe result goes in the Furnace output slot"});
@@ -58,7 +54,9 @@ public class ExoticGarden extends JavaPlugin {
 	public void onEnable() {
 		if (!new File("plugins/ExoticGarden").exists()) new File("plugins/ExoticGarden").mkdirs();
     	if (!new File("plugins/ExoticGarden/schematics").exists()) new File("plugins/ExoticGarden/schematics").mkdirs();
-		PluginUtils utils = new PluginUtils(this);
+		if(Bukkit.getPluginManager().getPlugin("CoreProtect")!=null)
+			coreProtectAPI = ((CoreProtect)Bukkit.getPluginManager().getPlugin("CoreProtect")).getAPI();
+    	PluginUtils utils = new PluginUtils(this);
 		utils.setupConfig();
 		cfg = utils.getConfig();
 		utils.setupMetrics();
@@ -178,8 +176,11 @@ public class ExoticGarden extends JavaPlugin {
 					if (b != null && b.getType() == Material.DIRT) {
 						PlayerInventory.consumeItemInHand(p);
 						b.setType(Material.GRASS_BLOCK);
-						if (b.getRelative(BlockFace.UP).getType() == Material.AIR || b.getRelative(BlockFace.UP).getType() == Material.CAVE_AIR)
+						logPlacement(p.getName(),b.getLocation(),b.getType(),b.getBlockData());
+						if (b.getRelative(BlockFace.UP).getType() == Material.AIR || b.getRelative(BlockFace.UP).getType() == Material.CAVE_AIR) {
 							b.getRelative(BlockFace.UP).setType(Material.GRASS);
+							logPlacement(p.getName(),b.getLocation(),b.getType(),b.getBlockData());
+						}
 						b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.GRASS);
 					}
 					return true;
@@ -794,21 +795,38 @@ public class ExoticGarden extends JavaPlugin {
 								plant = block;
 								BlockStorage.retrieve(block.getRelative(BlockFace.UP));
 								block.getWorld().playEffect(block.getRelative(BlockFace.UP).getLocation(), Effect.STEP_SOUND, Material.OAK_LEAVES);
-								block.getRelative(BlockFace.UP).setType(Material.AIR);;
+								logRemoveal(Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(block.getLocation(),"owner"))).getName()
+										,block.getRelative(BlockFace.UP).getLocation()
+										,block.getRelative(BlockFace.UP).getType()
+										,block.getRelative(BlockFace.UP).getBlockData());
+								block.getRelative(BlockFace.UP).setType(Material.AIR);
 							}
 							else {
 								plant = block.getRelative(BlockFace.DOWN);
 								BlockStorage.retrieve(block);
 								block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, Material.OAK_LEAVES);
-								block.setType(Material.AIR);;
+								logRemoveal(Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(block.getLocation(),"owner"))).getName()
+										,block.getLocation()
+										,block.getType()
+										,block.getBlockData());
+								block.setType(Material.AIR);
+
 							}
 							plant.setType(Material.OAK_SAPLING);
+							logPlacement(Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(block.getLocation(),"owner"))).getName()
+									,block.getLocation()
+									,block.getType()
+									,block.getBlockData());
 							itemstack = berry.getItem();
 							BlockStorage.store(plant, getItem(berry.toBush()));
 							break;
 						}
 						default: {
 							block.setType(Material.OAK_SAPLING);
+							logPlacement(Bukkit.getOfflinePlayer(UUID.fromString(BlockStorage.getLocationInfo(block.getLocation(),"owner"))).getName()
+									,block.getLocation()
+									,block.getType()
+									,block.getBlockData());
 							itemstack = berry.getItem();
 							BlockStorage.store(block, getItem(berry.toBush()));
 							break;
@@ -819,5 +837,24 @@ public class ExoticGarden extends JavaPlugin {
 		}
 		return itemstack;
 	}
-
+	public static boolean logRemoveal(String user, Location location, Material type, BlockData blockData){
+		if(coreProtectAPI == null)
+			return false;
+		return coreProtectAPI.logRemoval(user,location,type,blockData);
+	}
+	public static boolean logPlacement(String user, Location location, Material type, BlockData blockData){
+		if(coreProtectAPI == null)
+			return false;
+		return coreProtectAPI.logPlacement(user,location,type,blockData);
+	}
+	public static boolean logInteraction(String user, Location location){
+		if(coreProtectAPI == null)
+			return false;
+		return coreProtectAPI.logInteraction(user,location);
+	}
+	public static boolean logContainerTransaction(String user, Location location){
+		if(coreProtectAPI == null)
+			return false;
+		return coreProtectAPI.logContainerTransaction(user,location);
+	}
 }
